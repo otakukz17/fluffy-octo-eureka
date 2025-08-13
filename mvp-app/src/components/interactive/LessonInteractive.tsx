@@ -18,53 +18,72 @@ function classNames(...xs: (string | false | null | undefined)[]) {
   return xs.filter(Boolean).join(' ')
 }
 
+import { useDebouncedCallback } from '@/lib/hooks'
+
 export default function LessonInteractive({ lessonId, blocks }: { lessonId: string; blocks: Block[] }) {
-  const storageKey = `lesson:${lessonId}:state`
   const [state, setState] = useState<Record<string, any>>({})
   const [syncing, setSyncing] = useState(false)
   const [completed, setCompleted] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(storageKey)
-      if (raw) setState(JSON.parse(raw))
-    } catch {}
-    // fetch server state
     ;(async () => {
       try {
+        setIsLoading(true)
         const res = await fetch(`/api/lesson-progress?lessonId=${lessonId}`)
         if (res.ok) {
           const j = await res.json()
           if (j?.data) setState(j.data)
           if (j?.completed) setCompleted(true)
         }
-      } catch {}
+      } catch (e) {
+        console.error('Failed to fetch lesson progress', e)
+      } finally {
+        setIsLoading(false)
+      }
     })()
-  }, [storageKey])
+  }, [lessonId])
 
-  useEffect(() => {
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(state))
-    } catch {}
-  }, [state, storageKey])
-
-  function setField(key: string, value: any) {
-    setState((s) => ({ ...s, [key]: value }))
-  }
-
-  async function syncToServer(done?: boolean) {
+  const debouncedSync = useDebouncedCallback(async (newState: Record<string, any>, done?: boolean) => {
     setSyncing(true)
     try {
       await fetch('/api/lesson-progress', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lessonId, data: state, completed: done ?? completed }),
+        body: JSON.stringify({ lessonId, data: newState, completed: done ?? completed }),
       })
       if (done) setCompleted(true)
-    } catch {
+    } catch (e) {
+      console.error('Failed to sync progress', e)
     } finally {
       setSyncing(false)
     }
+  }, 2000)
+
+  function setField(key: string, value: any) {
+    const newState = { ...state, [key]: value }
+    setState(newState)
+    debouncedSync(newState)
+  }
+
+  async function markAsComplete() {
+    setSyncing(true)
+    try {
+      await fetch('/api/lesson-progress', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lessonId, data: state, completed: true }),
+      })
+      setCompleted(true)
+    } catch (e) {
+      console.error('Failed to mark as complete', e)
+    } finally {
+      setSyncing(false)
+    }
+  }
+
+  if (isLoading) {
+    return <div className="rounded-xl border bg-white p-5 text-center text-gray-600 shadow-sm ring-1 ring-black/5">Загрузка...</div>
   }
 
   return (
@@ -72,10 +91,12 @@ export default function LessonInteractive({ lessonId, blocks }: { lessonId: stri
       <div className="flex items-center justify-between rounded-lg border bg-white p-3 text-sm text-gray-700">
         <div>
           Статус урока: {completed ? <span className="text-green-700 font-medium">завершён</span> : <span className="text-gray-700">в процессе</span>}
+          {syncing && <span className="ml-2 text-xs text-gray-500">Сохранение...</span>}
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => syncToServer(false)} disabled={syncing} className="rounded-md bg-white px-3 py-1.5 shadow-sm ring-1 ring-black/5">Сохранить</button>
-          <button onClick={() => syncToServer(true)} disabled={syncing} className="rounded-md bg-indigo-600 px-3 py-1.5 text-white shadow-sm ring-1 ring-indigo-600/20">Отметить завершённым</button>
+          <button onClick={markAsComplete} disabled={syncing || completed} className="rounded-md bg-indigo-600 px-3 py-1.5 text-white shadow-sm ring-1 ring-indigo-600/20 disabled:opacity-50">
+            {completed ? 'Урок завершён' : 'Отметить завершённым'}
+          </button>
         </div>
       </div>
       {blocks.map((b, i) => {

@@ -3,41 +3,41 @@
 import React, { useEffect, useMemo, useState } from 'react'
 
 export default function LessonChecklist({
-  courseId,
   lessons,
+  initialCompleted = new Set(),
 }: {
-  courseId: string
   lessons: { id: string; title: string; position: number }[]
+  initialCompleted?: Set<string>
 }) {
-  const storageKey = `progress:${courseId}`
-  const [doneSet, setDoneSet] = useState<Set<string>>(new Set())
-
-  useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(storageKey)
-      if (raw) {
-        const parsed: string[] = JSON.parse(raw)
-        setDoneSet(new Set(parsed))
-      }
-    } catch {}
-  }, [storageKey])
-
-  useEffect(() => {
-    try {
-      window.localStorage.setItem(storageKey, JSON.stringify(Array.from(doneSet)))
-    } catch {}
-  }, [doneSet, storageKey])
+  const [doneSet, setDoneSet] = useState<Set<string>>(initialCompleted)
+  const [isPending, setIsPending] = useState(false)
 
   const completedCount = doneSet.size
   const sorted = useMemo(() => [...lessons].sort((a, b) => a.position - b.position), [lessons])
 
-  function toggle(lessonId: string) {
-    setDoneSet((prev) => {
-      const next = new Set(prev)
-      if (next.has(lessonId)) next.delete(lessonId)
-      else next.add(lessonId)
-      return next
-    })
+  async function toggle(lessonId: string) {
+    setIsPending(true)
+    const wasDone = doneSet.has(lessonId)
+
+    // Optimistic update
+    const next = new Set(doneSet)
+    if (wasDone) next.delete(lessonId)
+    else next.add(lessonId)
+    setDoneSet(next)
+
+    try {
+      await fetch('/api/lesson-progress', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lessonId, completed: !wasDone }),
+      })
+    } catch (e) {
+      // Revert on error
+      setDoneSet(doneSet)
+      console.error('Failed to update progress', e)
+    } finally {
+      setIsPending(false)
+    }
   }
 
   return (
@@ -53,6 +53,7 @@ export default function LessonChecklist({
                   type="checkbox"
                   checked={done}
                   onChange={() => toggle(l.id)}
+                  disabled={isPending}
                   className="peer sr-only"
                 />
                 <div className="h-5 w-5 rounded-md border border-gray-300 bg-white ring-1 ring-black/5 peer-checked:border-indigo-600 peer-checked:bg-indigo-600 peer-focus:outline-none" />
