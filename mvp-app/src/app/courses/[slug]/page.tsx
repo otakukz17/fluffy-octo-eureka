@@ -3,15 +3,33 @@ import { getCurrentUser } from '@/lib/auth'
 import { notFound, redirect } from 'next/navigation'
 import CourseProgress from '@/components/CourseProgress'
 import LessonChecklist from '@/components/LessonChecklist'
+import { Course } from '@/lib/types'
 
-export default async function CoursePage({ params }: { params: Promise<{ id: string }> }) {
-  const p = await params
-  const course = db.prepare('SELECT id, title, description, price_cents, expert_name FROM courses WHERE id = ?').get(p.id) as any
-  if (!course) return notFound()
+export default async function CoursePage({ params }: { params: { slug: string } }) {
+  let course: Course | null = null;
+  let lessons: any[] = [];
 
-  const lessons = db
-    .prepare('SELECT id, title, position, duration_min FROM lessons WHERE course_id = ? ORDER BY position ASC')
-    .all(p.id) as any[]
+  try {
+    course = db.prepare(`
+      SELECT id, title, slug, description, cover_image, price_cents, expert_name, status, tags_json, created_at
+      FROM courses
+      WHERE slug = ? AND status = 'published'
+    `).get(params.slug) as Course | null;
+
+    if (course) {
+      lessons = db
+        .prepare('SELECT id, title, position, duration_min FROM lessons WHERE course_id = ? ORDER BY position ASC')
+        .all(course.id) as any[]
+    }
+  } catch (e) {
+    console.error(e);
+    // Render a generic error page or component
+    return <div>Error loading course.</div>
+  }
+
+  if (!course) {
+    return notFound();
+  }
 
   const user = await getCurrentUser()
   const enrolled = user
@@ -20,18 +38,28 @@ export default async function CoursePage({ params }: { params: Promise<{ id: str
         .get(user.id, course.id) as any)
     : null
 
+  const completedLessons = user
+    ? (db
+        .prepare(
+          'SELECT lesson_id FROM lesson_completions WHERE user_id = ? AND lesson_id IN (SELECT id FROM lessons WHERE course_id = ?)'
+        )
+        .all(user.id, course.id) as { lesson_id: string }[])
+    : []
+  const completedLessonsSet = new Set(completedLessons.map((l) => l.lesson_id))
+
   async function enrollAction() {
     'use server'
     const current = await getCurrentUser()
     if (!current) return redirect('/login?message=Login required')
     db.prepare('INSERT OR IGNORE INTO enrollments (user_id, course_id) VALUES (?, ?)').run(current.id, course.id)
-    redirect(`/courses/${course.id}`)
+    redirect(`/courses/${course.slug}`)
   }
 
   return (
     <section className="mx-auto max-w-6xl py-10">
       <div className="grid gap-8 md:grid-cols-3">
         <div className="md:col-span-2">
+          {course.cover_image && <img src={course.cover_image} alt={course.title} className="mb-6 aspect-video w-full rounded-2xl object-cover" />}
           <h1 className="text-3xl font-semibold">{course.title}</h1>
           <p className="mt-3 text-gray-700">{course.description}</p>
           <p className="mt-1 text-sm text-gray-500">Эксперт: {course.expert_name}</p>
@@ -39,14 +67,14 @@ export default async function CoursePage({ params }: { params: Promise<{ id: str
           <div className="mt-8 space-y-4">
             <h2 className="text-xl font-semibold">Программа</h2>
             <CourseProgress courseId={course.id} total={lessons.length} />
-            <LessonChecklist courseId={course.id} lessons={lessons} />
+            <LessonChecklist lessons={lessons} initialCompleted={completedLessonsSet} />
             <div className="text-sm text-gray-600">Общая длительность: {lessons.reduce((a, l) => a + (l.duration_min || 0), 0)} мин</div>
             <div className="pt-2 text-sm">
               Перейти к урокам:
               <ol className="mt-2 space-y-2">
                 {lessons.map((l) => (
                   <li key={l.id}>
-                    <a href={`/courses/${course.id}/lesson/${l.id}`} className="text-indigo-600 underline underline-offset-4">
+                    <a href={`/courses/${course.slug}/lesson/${l.id}`} className="text-indigo-600 underline underline-offset-4">
                       {l.position}. {l.title}
                     </a>
                   </li>
@@ -79,5 +107,3 @@ export default async function CoursePage({ params }: { params: Promise<{ id: str
     </section>
   )
 }
-
-

@@ -2,15 +2,7 @@
 
 import React, { useMemo, useState } from 'react'
 import Link from 'next/link'
-
-export type Course = {
-  id: string
-  title: string
-  description: string
-  price_cents: number
-  expert_name: string
-  created_at?: string
-}
+import { Course } from '@/lib/types'
 
 export default function CourseCatalogClient({ initial }: { initial: Course[] }) {
   const [query, setQuery] = useState('')
@@ -60,19 +52,26 @@ export default function CourseCatalogClient({ initial }: { initial: Course[] }) 
         {filtered.map((c) => (
           <Link
             key={c.id}
-            href={`/courses/${c.id}`}
-            className="group block rounded-2xl border bg-white p-6 shadow-sm ring-1 ring-black/5 transition hover:-translate-y-0.5 hover:shadow-md"
+            href={`/courses/${c.slug || c.id}`}
+            className="group block overflow-hidden rounded-2xl border bg-white shadow-sm ring-1 ring-black/5 transition hover:-translate-y-0.5 hover:shadow-md"
           >
-            <div className="flex items-start justify-between gap-3">
-              <h3 className="text-lg font-semibold line-clamp-2">{c.title}</h3>
-              <span className="rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 ring-1 ring-indigo-200">
-                {(c.price_cents / 100).toFixed(2)} $
-              </span>
+            <div className="h-40 bg-gray-200">
+              {c.cover_image && (
+                <img src={c.cover_image} alt={c.title} className="h-full w-full object-cover" />
+              )}
             </div>
-            <p className="mt-2 line-clamp-3 text-gray-600">{c.description}</p>
-            <div className="mt-4 flex items-center justify-between text-sm text-gray-700">
-              <span>Эксперт: {c.expert_name}</span>
-              <span className="text-xs text-gray-500">→ Подробнее</span>
+            <div className="p-6">
+              <div className="flex items-start justify-between gap-3">
+                <h3 className="text-lg font-semibold line-clamp-2">{c.title}</h3>
+                <span className="rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 ring-1 ring-indigo-200">
+                  {(c.price_cents / 100).toFixed(2)} $
+                </span>
+              </div>
+              <p className="mt-2 line-clamp-3 text-sm text-gray-600">{c.description}</p>
+              <div className="mt-4 flex items-center justify-between text-sm text-gray-700">
+                <span>Эксперт: {c.expert_name}</span>
+                <span className="text-xs text-gray-500 opacity-0 transition group-hover:opacity-100">→ Подробнее</span>
+              </div>
             </div>
           </Link>
         ))}
