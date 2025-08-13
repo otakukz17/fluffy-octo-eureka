@@ -1,0 +1,42 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# macOS
+.DS_Store
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Next.js
+.next/
+out/
+.vercel/
+
+# Build outputs
+dist/
+build/
+coverage/
+.cache/
+.parcel-cache/
+
+# IDE
+.vscode/
+.idea/
+
+# Local data and databases
+var/
+mvp-app/var/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
+# Project-specific exclusions
+mvp-app/node_modules/
+mvp-app/.next/
+
