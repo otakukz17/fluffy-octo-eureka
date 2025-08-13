@@ -1,0 +1,9 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "mvp-app/next.config.js",
+      "use": "@vercel/next"
+    }
+  ]
+}
