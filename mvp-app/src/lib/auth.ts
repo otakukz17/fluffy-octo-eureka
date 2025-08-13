@@ -50,7 +50,7 @@ export function createUser(email: string, password: string) {
 }
 
 export function verifyUser(email: string, password: string) {
-  const user = db.prepare('SELECT id, email, role, password_hash FROM users WHERE email = ?').get(email) as any
+  const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email) as any
   if (!user) return null
 
   if (user.password_hash.startsWith('$2')) {
@@ -58,7 +58,7 @@ export function verifyUser(email: string, password: string) {
     const isValid = bcrypt.compareSync(password, user.password_hash)
     if (!isValid) return null
     // User is valid, no need to update hash
-    return { id: user.id, email: user.email, role: user.role }
+    return user
   } else {
     // Legacy SHA-256 verification and migration
     const oldInputHash = crypto.createHash('sha256').update(password).digest('hex')
@@ -68,7 +68,7 @@ export function verifyUser(email: string, password: string) {
     const newPasswordHash = hashPassword(password) // this uses bcrypt
     db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(newPasswordHash, user.id)
 
-    return { id: user.id, email: user.email, role: user.role }
+    return user
   }
 }
 
