@@ -10,7 +10,13 @@ export async function login(formData: FormData) {
   if (!user) {
     return redirect('/login?message=Could not authenticate user')
   }
+
   await startSession(user.id)
+
+  if (user.must_change_password) {
+    return redirect('/auth/change-password')
+  }
+
   return redirect('/')
 }
 

@@ -33,6 +33,7 @@ export function migrate() {
       password_hash TEXT NOT NULL,
       role TEXT NOT NULL DEFAULT 'user',
       email_verified_at TEXT,
+      must_change_password INTEGER DEFAULT 0,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -148,6 +149,20 @@ export function migrate() {
   } catch (e) {
     // Ignore errors if the table doesn't exist
   }
+
+  const ensureColumn = (table: string, column: string, ddl: string) => {
+    try {
+      const info = db.prepare(`PRAGMA table_info(${table})`).all() as any[];
+      const exists = info.some((c) => c.name === column);
+      if (!exists) {
+        db.exec(`ALTER TABLE ${table} ADD COLUMN ${ddl}`);
+      }
+    } catch (e) {
+      // ignore if table does not exist
+    }
+  };
+
+  ensureColumn('users', 'must_change_password', 'must_change_password INTEGER DEFAULT 0');
 }
 
 // This space is intentionally left blank.
