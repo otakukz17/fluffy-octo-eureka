@@ -2,10 +2,15 @@ import Database from 'better-sqlite3'
 import fs from 'node:fs'
 import path from 'node:path'
 
+console.log('DB_LOG: Starting db.ts');
+
 const dataDir = path.join(process.cwd(), 'var')
 const dbPath = path.join(dataDir, 'data.sqlite')
 
+console.log(`DB_LOG: Database path is ${dbPath}`);
+
 if (!fs.existsSync(dataDir)) {
+  console.log('DB_LOG: Creating data directory');
   fs.mkdirSync(dataDir, { recursive: true })
 }
 
@@ -13,16 +18,26 @@ if (!fs.existsSync(dataDir)) {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const g: any = globalThis as any
 export const db: Database = g.__cf_db || new Database(dbPath, { fileMustExist: false })
+console.log('DB_LOG: Database connection established');
+
 if (!g.__cf_db) {
+  console.log('DB_LOG: First time connecting, setting global');
   g.__cf_db = db
   try {
     db.pragma('busy_timeout = 5000')
     db.pragma('journal_mode = WAL')
-  } catch {
+    console.log('DB_LOG: WAL journal mode set');
+  } catch(e) {
+    console.error('DB_LOG: Error setting WAL mode', e);
     try {
       db.pragma('journal_mode = DELETE')
-    } catch {}
+      console.log('DB_LOG: DELETE journal mode set');
+    } catch(e2) {
+      console.error('DB_LOG: Error setting DELETE mode', e2);
+    }
   }
+} else {
+    console.log('DB_LOG: Reusing existing database connection');
 }
 
 export function migrate() {

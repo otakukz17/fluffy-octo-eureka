@@ -196,6 +196,74 @@ function upgradeIntroUxIfNeeded() {
   } catch {}
 }
 
+function seedAiCourseIfNeeded() {
+  try {
+    const courseTitle = 'Введение в использование ИИ: ChatGPT, Antropic, Google Gemini';
+    const course = db.prepare("SELECT id FROM courses WHERE title = ? LIMIT 1").get(courseTitle) as any;
+    if (course) return;
+
+    const insertCourse = db.prepare(
+      'INSERT INTO courses (id, title, slug, description, price_cents, expert_name, status) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    );
+    const insertLesson = db.prepare(
+      'INSERT INTO lessons (id, course_id, title, video_url, position) VALUES (?, ?, ?, ?, ?)'
+    );
+    const updateLesson = db.prepare(
+      'UPDATE lessons SET duration_min = ?, content_md = ?, content_json = ? WHERE id = ?'
+    );
+    const rnd = () => Math.random().toString(36).slice(2, 12);
+
+    const courseId = rnd();
+    insertCourse.run(
+      courseId,
+      courseTitle,
+      'vvedenie-v-ispolzovanie-ii',
+      'Познакомьтесь с ведущими языковыми моделями, научитесь писать эффективные промпты и применять ИИ для решения практических задач.',
+      0,
+      'Jules Verne',
+      'published'
+    );
+
+    const lessons = [
+      {
+        title: 'Основы ИИ и языковых моделей',
+        duration_min: 30,
+        blocks: [
+          { type: 'theory', title: 'Что такое ИИ и LLM', text: 'Искусственный интеллект (ИИ) — это область компьютерных наук, посвященная созданию систем, способных выполнять задачи, которые обычно требуют человеческого интеллекта. Большие языковые модели (LLM) — это тип ИИ, обученный на огромных объемах текста для понимания и генерации человеческого языка.' },
+          { type: 'quiz_mcq', title: 'Ключевое отличие', question: 'Чем LLM отличается от традиционного программного обеспечения?', options: ['LLM не требует электричества', 'LLM обучается на данных, а не программируется явно под каждую задачу', 'LLM не может делать ошибки'], correctIndex: 1 },
+          { type: 'reflection', title: 'Ваш опыт', prompt: 'Где в своей повседневной жизни вы уже сталкивались с технологиями ИИ? Опишите один пример.' },
+        ]
+      },
+      {
+        title: 'Практическое руководство по ChatGPT',
+        duration_min: 45,
+        blocks: [
+          { type: 'theory', title: 'Искусство промпт-инжиниринга', text: 'Качество ответа от LLM напрямую зависит от качества вашего запроса (промпта). Хороший промпт должен быть четким, контекстуализированным и конкретным. Используйте роли (например, "Представь, что ты опытный маркетолог...") для лучших результатов.' },
+          { type: 'code_task', title: 'Создание промпта', prompt: 'Напишите промпт для ChatGPT, который попросит его сгенерировать HTML-код для простой кнопки с синим фоном и белым текстом.', starter: 'Сгенерируй HTML и CSS для...', checkRegex: '(button|кнопка|style|стил|background|фон)', tips: ['Укажите цвет фона, цвет текста и текст на кнопке.'] },
+          { type: 'quiz_mcq', title: 'Настройки модели', question: 'Что означает параметр "температура" в настройках языковой модели?', options: ['Скорость генерации ответа', 'Степень креативности/случайности ответа', 'Физическую температуру сервера'], correctIndex: 1 },
+        ]
+      },
+      {
+        title: 'Знакомство с Anthropic Claude и Google Gemini',
+        duration_min: 40,
+        blocks: [
+          { type: 'theory', title: 'Сравнение гигантов', text: 'ChatGPT, Claude и Gemini — ведущие LLM, но у каждой есть свои особенности. Claude от Anthropic часто хвалят за более "вдумчивые" и безопасные ответы. Gemini от Google глубоко интегрирован в экосистему Google и хорошо работает с мультимодальными данными (текст, изображения).' },
+           { type: 'code_task', title: 'Анализ текста с Claude', prompt: 'Представьте, что у вас есть следующий отзыв клиента: "Сервис отличный, но доставка была слишком долгой." Напишите промпт для Claude, чтобы он выделил основные положительные и отрицательные моменты из этого отзыва.', starter: 'Проанализируй следующий отзыв...', checkRegex: '(положительные|позитивные|негативные|минусы|плюсы)', tips: ['Попросите модель структурировать ответ, например, в виде списка.'] },
+          { type: 'reflection', title: 'Выбор инструмента', prompt: 'Исходя из описания, какая из трех моделей (ChatGPT, Claude, Gemini) кажется вам наиболее подходящей для решения ваших рабочих или личных задач? Почему?' },
+        ]
+      }
+    ];
+
+    lessons.forEach((l, i) => {
+      const lid = rnd();
+      insertLesson.run(lid, courseId, l.title, null, i + 1);
+      updateLesson.run(l.duration_min, null, JSON.stringify(l.blocks), lid);
+    });
+  } catch (e) {
+    console.error('Error in seedAiCourseIfNeeded:', e);
+  }
+}
+
 function enrichCoursesIfNeeded() {
   // Add extra lessons to make intros richer, without deleting existing ones
   try {
@@ -850,6 +918,7 @@ try {
     try { upgradeIntroFrontendIfNeeded() } catch (e) { console.error('Error in upgradeIntroFrontendIfNeeded:', e); }
     try { upgradeIntroAnalyticsIfNeeded() } catch (e) { console.error('Error in upgradeIntroAnalyticsIfNeeded:', e); }
     try { upgradeIntroUxIfNeeded() } catch (e) { console.error('Error in upgradeIntroUxIfNeeded:', e); }
+    try { seedAiCourseIfNeeded() } catch (e) { console.error('Error in seedAiCourseIfNeeded:', e); }
     try { deepSeedAnalyticsIfNeeded() } catch (e) { console.error('Error in deepSeedAnalyticsIfNeeded:', e); }
     try { deepSeedUxIfNeeded() } catch (e) { console.error('Error in deepSeedUxIfNeeded:', e); }
     // 3) enrich to add more lessons if needed

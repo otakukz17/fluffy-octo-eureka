@@ -1,3 +1,8 @@
-
-> mvp-app@1.0.0 dev
-> next dev
+npm error code ENOENT
+npm error syscall open
+npm error path /app/mvp-app/mvp-app/package.json
+npm error errno -2
+npm error enoent Could not read package.json: Error: ENOENT: no such file or directory, open '/app/mvp-app/mvp-app/package.json'
+npm error enoent This is related to npm not being able to find a file.
+npm error enoent
+npm error A complete log of this run can be found in: /home/jules/.npm/_logs/2025-08-14T05_44_30_151Z-debug-0.log
